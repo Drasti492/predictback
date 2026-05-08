@@ -3,7 +3,7 @@ const axios   = require("axios");
 const User    = require("../models/PredictorUser");
 const Payment = require("../models/PredictorPayment");
 
-const AMOUNT = 1800;
+const AMOUNT = 1;
 
 function formatPhone(raw) {
   let p = raw.replace(/\s+/g, "").replace(/^0/, "254");
