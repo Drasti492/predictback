@@ -5,70 +5,125 @@ const cors     = require("cors");
 const jwt      = require("jsonwebtoken");
 const axios    = require("axios");
 
-if (!process.env.JWT_SECRET) { console.error("❌ JWT_SECRET missing"); process.exit(1); }
-if (!process.env.MONGO_URI)  { console.error("❌ MONGO_URI missing");  process.exit(1); }
-
 const app = express();
 
+// ─────────────────────────────────────────────
+// ENV CHECK
+// ─────────────────────────────────────────────
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET missing");
+  process.exit(1);
+}
+
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI missing");
+  process.exit(1);
+}
+
+// ─────────────────────────────────────────────
+// CORS CONFIG (FIXED)
+// ─────────────────────────────────────────────
 const allowedOrigins = [
   "https://predictorfront.vercel.app",
   "http://localhost:3000",
   "http://127.0.0.1:5500"
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
+    // allow mobile apps / postman / curl
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(null, true); // TEMP FIX (allow all for debugging)
+    return callback(new Error("CORS blocked: Not allowed origin"));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}));
-app.use(cors());
+};
+
+// ✅ IMPORTANT: ONLY ONCE
+app.use(cors(corsOptions));
+
+// ✅ HANDLE PRE-FLIGHT REQUESTS PROPERLY
+app.options("*", cors(corsOptions));
+
+// ─────────────────────────────────────────────
+// MIDDLEWARE
+// ─────────────────────────────────────────────
 app.use(express.json());
 
-// ── Auth middleware ──────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// AUTH MIDDLEWARE
+// ─────────────────────────────────────────────
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-  try { req.user = jwt.verify(token, process.env.JWT_SECRET); next(); }
-  catch { res.status(401).json({ message: "Invalid token" }); }
+
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 }
 
-// ── Routes ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// ROUTES
+// ─────────────────────────────────────────────
 app.use("/api/auth", require("./routes/predictorAuthRoutes"));
 
-app.get("/health", (req, res) =>
-  res.json({ status: "ok", db: mongoose.connection.readyState })
-);
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    db: mongoose.connection.readyState
+  });
+});
 
-// Protected — proxy crash data from main aviator backend
+// ─────────────────────────────────────────────
+// PROTECTED ROUTE (PROXY GAME ENGINE)
+// ─────────────────────────────────────────────
 app.get("/api/predictor/next", authMiddleware, async (req, res) => {
   try {
     const { data } = await axios.get(
       "https://aviator-9raf.onrender.com/api/predictor/next",
       { timeout: 5000 }
     );
+
     res.json(data);
   } catch (err) {
-    res.status(502).json({ message: "Game engine unavailable. Try again." });
+    res.status(502).json({
+      message: "Game engine unavailable. Try again."
+    });
   }
 });
 
-// ── Database ─────────────────────────────────────────────────────
-mongoose.connect(process.env.MONGO_URI)
+// ─────────────────────────────────────────────
+// DATABASE CONNECTION
+// ─────────────────────────────────────────────
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Predictor DB connected"))
-  .catch(err => { console.error("❌ DB error:", err.message); process.exit(1); });
+  .catch((err) => {
+    console.error("❌ DB error:", err.message);
+    process.exit(1);
+  });
 
-mongoose.connection.on("error", err =>
-  console.error("❌ DB runtime error:", err.message)
-);
+mongoose.connection.on("error", (err) => {
+  console.error("❌ DB runtime error:", err.message);
+});
 
+// ─────────────────────────────────────────────
+// START SERVER
+// ─────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🔮 Predictor server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`🔮 Predictor server running on port ${PORT}`);
+});
