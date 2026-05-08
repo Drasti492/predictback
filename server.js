@@ -45,15 +45,13 @@ const corsOptions = {
   credentials: true
 };
 
-// ✅ IMPORTANT: ONLY ONCE
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: ["https://predictorfront.vercel.app", "http://localhost:3000"],
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"],
+  credentials: true
+}));
 
-// ✅ HANDLE PRE-FLIGHT REQUESTS PROPERLY
-app.options("*", cors(corsOptions));
-
-// ─────────────────────────────────────────────
-// MIDDLEWARE
-// ─────────────────────────────────────────────
 app.use(express.json());
 
 // ─────────────────────────────────────────────
