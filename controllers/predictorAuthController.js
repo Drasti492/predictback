@@ -118,44 +118,67 @@ exports.checkStatus = async (req, res) => {
 // ================================================================
 exports.paymentCallback = async (req, res) => {
   try {
-    const body = req.body;
-    const ref  = body?.response?.ExternalReference || body?.ExternalReference;
-    const code = body?.response?.ResultCode ?? body?.ResultCode;
+    console.log("🔥 CALLBACK HIT");
+    console.log(JSON.stringify(req.body, null, 2));
 
-    console.log("📩 Predictor callback:", JSON.stringify(body).slice(0, 400));
-    if (!ref) return res.sendStatus(400);
+    const body = req.body;
+
+    const ref =
+      body?.response?.ExternalReference ||
+      body?.ExternalReference;
+
+    const code =
+      body?.response?.ResultCode ??
+      body?.ResultCode;
+
+    console.log("REFERENCE:", ref);
+    console.log("RESULT CODE:", code);
+
+    if (!ref) {
+      console.log("❌ Missing reference");
+      return res.sendStatus(400);
+    }
 
     const payment = await Payment.findOne({ reference: ref });
-    if (!payment) return res.sendStatus(404);
-    if (payment.status !== "pending") return res.sendStatus(200);
 
-    if (code === 0 || code === "0") {
+    if (!payment) {
+      console.log("❌ Payment not found");
+      return res.sendStatus(404);
+    }
+
+    if (String(code) === "0") {
+
       payment.status = "success";
       await payment.save();
 
-      // Create or update user — only now is account activated
       await User.findOneAndUpdate(
         { phone: payment.phone },
         {
-          phone:         payment.phone,
-          pin:           payment.pin,
+          phone: payment.phone,
+          pin: payment.pin,
           accessGranted: true,
-          reference:     ref
+          reference: payment.reference
         },
-        { upsert: true, new: true }
+        {
+          upsert: true,
+          new: true
+        }
       );
 
-      console.log(`✅ Predictor access granted: ${payment.phone}`);
+      console.log("✅ ACCESS GRANTED:", payment.phone);
+
     } else {
+
       payment.status = "failed";
       await payment.save();
-      console.log(`❌ Payment failed — ref: ${ref} — account NOT created`);
+
+      console.log("❌ PAYMENT FAILED");
     }
 
     res.sendStatus(200);
 
   } catch (err) {
-    console.error("Callback error:", err.message);
+    console.error("❌ CALLBACK ERROR:", err);
     res.sendStatus(500);
   }
 };
