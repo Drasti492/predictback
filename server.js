@@ -24,7 +24,7 @@ if (!process.env.MONGO_URI) {
 // CORS CONFIG (FIXED)
 // ─────────────────────────────────────────────
 const allowedOrigins = [
-  "https://predictorfront.vercel.app",
+  "https://aviator-predictor-oracle.vercel.app",
   "http://localhost:3000",
   "http://127.0.0.1:5500"
 ];
@@ -46,7 +46,7 @@ const corsOptions = {
 };
 
 app.use(cors({
-  origin: ["https://predictorfront.vercel.app", "http://localhost:3000"],
+  origin: ["https://aviator-predictor-oracle.vercel.app", "http://localhost:3000"],
   methods: ["GET","POST","PUT","DELETE","OPTIONS"],
   allowedHeaders: ["Content-Type","Authorization"],
   credentials: true
